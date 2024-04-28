@@ -1,0 +1,32 @@
+
+
+mqtt:
+    host: 192.168.2.20
+    port: 1889
+
+homie:
+    device01:
+        topic: homieTest
+        id: device01
+        name: Dishwasher
+        node01:
+            name: Program
+            switch01:
+                name: Power1
+                type: switch
+                settable: True
+            float02:
+                name: Power2
+                type: string
+                settable: True
+        node02:
+            name: Program
+            string21:
+                name: Power1
+                type: string
+                settable: True
+            switch22:
+                name: Power2
+                type: switch
+                settable: True
+

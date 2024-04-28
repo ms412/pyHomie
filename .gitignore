@@ -1,0 +1,10 @@
+.git
+.venv
+.idea/
+.ipynb_checkpoints/
+*.log
+__pycache__
+.pytest_cache/
+pytest_report*
+report.html
+venv/
