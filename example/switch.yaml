@@ -13,19 +13,21 @@ homie:
             name: Program
             switch11:
                 name: Switch11
-                type: switch
+                type: switchType
                 settable: True
+                format: OFF:ON
             switch12:
                 name: Switch12
-                type: switch
+                type: switchType
                 settable: False
+                format: OFF:ON
         node02:
             name: Program
             switch21:
                 name: Power1
-                type: switch
+                type: switchType
                 settable: True
             switch22:
                 name: Power2
-                type: string
+                type: floatType
                 settable: False

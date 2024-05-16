@@ -1,3 +1,3 @@
-from pyHomie import pyHomie
+from src.pyHomie import pyHomie
 
 

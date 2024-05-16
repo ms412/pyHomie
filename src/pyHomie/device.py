@@ -4,6 +4,7 @@ import time
 import datetime
 import uuid
 import socket
+import logging
 from src.pyHomie import node
 
 
@@ -13,7 +14,10 @@ from src.pyHomie import node
 
 class device(object):
 
-    def __init__(self,id,mqttObj,topic='homie',homie='4.0.0',name='',state='init'):
+    def __init__(self,id,mqttObj,topic='homie',homie='4.0.0',name='',state='init',logger='logger'):
+
+        _libName = str(__name__.rsplit('.', 1)[-1])
+        self._log = logging.getLogger(logger + '.' + _libName + '.' + self.__class__.__name__)
 
         self.deviceId = id
         self.mqttObj = mqttObj
@@ -32,33 +36,39 @@ class device(object):
 
         self.interval = 60
 
-
+        self._log.info('Create Device Objact ID: %s'%(self.deviceId))
 
     def __del__(self):
-       # self.setState('disconnected')
-        pass
+        self._log.debug('Delete device %s'%(self.deviceId))
+
 
    # @property
-    def node(self):
-        return self.__dict__
+   # def node(self):
+    #    return self.__dict__
 
     #@node.setter
     def node(self,value):
         self.__dict__[value] = node('name')
+        return True
 
     def setState(self,state):
+        self._log.info('The Homie $state device attribute changed from %s to %s' % (self.state, state))
         self.state = state
-        print('publish state',self.topic,self.state)
+       # print('publish state',self.topic,self.state)
         self.mqttObj.publish("/".join((self.topic,"$state")), self.state, retain=True, qos=1)
+        return True
 
     def registerNode(self,id,nodeObj):
-        print('regisertNode',id)
+        self._log.info('NodeID %s registered as device %s'%(id,self.deviceId))
+      #  print('regisertNode',id)
         setattr(self,id,nodeObj)
     #    self.nodesRegister[id] = nodeObj
-        print(self.__dict__)
+      #  print(self.__dict__)
+        return True
 
     def init(self):
         #self.mqttObj = mqttObj
+        self._log.info('Start initalisation of device ID: %s'% self.deviceId)
         self.topic = "/".join((self.baseTopic, self.deviceId))
         self.start_time = time.time()
 
@@ -66,12 +76,13 @@ class device(object):
         self.mqttObj.will_set("/".join((self.topic,"$state")),'lost',retain=True)
         self.publish()
         self.publish_extensions()
-        print('init device completed')
+        self._log.info('Completed initialisation of device ID: %s'% self.deviceId)
+      #  print('init device completed')
 
         for id, instance in self.__dict__.items():
        #     print('init node', id, instance, isinstance(instance, node.node))
             if isinstance(instance, node.node):
-                print('init Node', id, instance)
+              #  print('init Node', id, instance)
                 instance.init(self.mqttObj,self.topic)
      #   for nodeName, nodeObj in self.nodesRegister.items():
       #      nodeObj.init(self.mqttObj,self.topic)
