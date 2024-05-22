@@ -1,4 +1,6 @@
 .git
+.git*
+.py*
 .venv
 .idea/
 .ipynb_checkpoints/
@@ -8,3 +10,6 @@ __pycache__
 pytest_report*
 report.html
 venv/
+dist/
+build/
+.github/

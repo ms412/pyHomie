@@ -1,8 +1,12 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
+
+with open("README.md", "r") as f:
+  description = f.read()
+
 setup(
   name = 'pyHomie',
-  packages = ['pyHomie'],
-  version = '0.0.2',
+  packages = find_packages(),
+  version = '0.0.4',
   license='MIT',
   description = 'A Python library for Homie Convention',
   author = 'Markus Schiesse',
@@ -11,10 +15,9 @@ setup(
   download_url = 'https://github.com/user/reponame/archive/v_01.tar.gz',
   keywords = ['mqtt', 'paho-mqtt', 'homie'],   # Keywords that define your package best
   install_requires=[            # I get to this in a second
-          'validators',
-          'beautifulsoup4',
+
       ],
-  classifier =[
+  classifiers =[
     'Development Status :: 3 - Alpha',
     'Environment :: Other Environment',
     'Intended Audience :: Developers',
@@ -27,5 +30,6 @@ setup(
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Home Automation',
     ],
-
+  long_description=description,
+  long_description_content_type="text/markdown",
 )

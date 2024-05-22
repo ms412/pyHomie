@@ -5,9 +5,8 @@ __date__= "2024/05/15"
 
 import re
 import yaml
-# Set default logging handler to avoid "No handler found" warnings.
-import logging
 
+import logging
 from pyHomie import properties, device, node, mqttClient, watchdog
 
 

@@ -1,7 +1,7 @@
 
-__app__ ='SwitchHomie'
+__app__ ='HomieSwitch'
 
-from src.pyHomie import pyHomie
+from pyHomie import pyHomie
 import logging
 import time
 
@@ -10,10 +10,11 @@ logging.basicConfig(level=logging.INFO)
 
 class HomieSwitch(object):
     def __init__(self):
+
         self.logger = logging.getLogger(__app__)
         self.logger.info('Starting Example: %s' % __app__)
 
-        self.homieSwitch = pyHomie.pyHomie(__app__)
+        self.homieSwitch = pyHomie(__app__)
 
     def initSwitch(self):
         #load configuration and setup mqtt
