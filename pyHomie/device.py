@@ -5,7 +5,7 @@ import datetime
 import uuid
 import socket
 import logging
-from src.pyHomie import node
+from pyHomie import node
 
 
 #from node import node

@@ -73,7 +73,7 @@ class propertyBase(object):
             self.mqttObj.publish(self.topic, self.convertToPayload(value), self.retained, 1)
         else:
           #  print('validation error')
-            self._log.error('Property: %s validation of value %s failed'%(value))
+            self._log.error('Property: %s validation of value %s failed'%(self._id,value))
 
 
     def validate_value(self, value):
@@ -125,7 +125,7 @@ class switchType(propertyBase):
        # super().__init__(id, name, settable, retained, unit, datatype, format, value, callback):
 
     def validate_value(self, value):
-        return value in[True, False,'ON','OFF']
+        return value in['ON','OFF']
 
     def convertFromPayload(self,payload):
         print(payload)
@@ -148,6 +148,56 @@ class switchType(propertyBase):
         else:
             return None
 
+class boolType(propertyBase):
+
+    def __init__(self,id,node,name,logger='logger',**kwargs):
+
+        _libName = str(__name__.rsplit('.', 1)[-1])
+        self._logHandler = logger + '.' + _libName
+        self._log = logging.getLogger(self._logHandler + '.' + self.__class__.__name__)
+
+        self._id = id
+       # node = self._node
+        self._node = node
+        self._name = name
+        self._datatype=kwargs.get("datatype",'boolean')
+
+        self._format = kwargs.get("format",'False:True')
+        self._settable=kwargs.get("settable",False)
+        self._retained=kwargs.get("retained",True)
+        self._unit=kwargs.get("unit",None)
+
+        self._value=kwargs.get("value",None)
+        self._callback=kwargs.get("callback",None)
+
+        self._log.info('Create Property Switch Objact ID: %s' % (self._id))
+
+        super().__init__(id=id, node=self._node, name=name, settable=self._settable, retained=self._retained,unit=self._unit, datatype=self._datatype, format=self._format, value=self._value,callback=self._callback,logger=self._logHandler)
+       # super().__init__(id, name, settable, retained, unit, datatype, format, value, callback):
+
+    def validate_value(self, value):
+        return value in[True, False]
+
+    def convertFromPayload(self,payload):
+       # print(payload)
+        if payload is not str:
+
+            payload = str(payload)
+            print(payload,type(payload))
+        if payload == 'true':
+            return True
+        elif payload == 'false':
+            return False
+        else:
+            return None
+
+    def convertToPayload(self,value):
+        if value:
+            return self._format.split(':')[1]
+        elif not value:
+            return self._format.split(':')[0]
+        else:
+            return None
 
 class stringType(propertyBase):
     def __init__(self,id,node,name,logger='logger',**kwargs):
@@ -174,18 +224,17 @@ class stringType(propertyBase):
         super().__init__(id=id, node=self._node,name=name, settable=self._settable, retained=self._retained,unit=self._unit, datatype=self._datatype, format=self._format, value=self._value,callback=self._callback,logger=self._logHandler)
 
     def validate_value(self, value):
-        return value in [True,False]
+        if isinstance(value, str):
+            return True
+
+        self._log.error('Validate failed value: %s, actual data type: %s expected: %s'%(value,type(value),type(' ')))
+        return False
 
     def convertFromPayload(self, payload):
-        if payload == 'true':
-            return 'ON'
-        elif payload == 'false':
-            return 'OFF'
-        else:
-            return None
+        return payload
 
     def convertToPayload(self, value):
-        pass
+        return value
 
 
 class floatType(propertyBase):

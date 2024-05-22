@@ -7,9 +7,8 @@ import re
 import yaml
 # Set default logging handler to avoid "No handler found" warnings.
 import logging
-from logging import NullHandler
 
-from src.pyHomie import properties, device, node, mqttClient, watchdog
+from pyHomie import properties, device, node, mqttClient, watchdog
 
 
 class pyHomie(object):

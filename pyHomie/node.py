@@ -1,6 +1,6 @@
 
 import logging
-from src.pyHomie import properties
+from pyHomie import properties
 
 class node(object):
     def __init__(self,id,device,name='',type='',logger='logger'):
