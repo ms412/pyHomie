@@ -1,12 +1,19 @@
 
-__app__ = "pyHomnie"
-__version__ = "0.0.3"
-__date__= "2024/05/15"
+__app__ = "pyHomie"
+__version__ = "0.0.4"
+__date__= "2024/06/11"
 
 import re
+import sys
 import yaml
-
+import json
 import logging
+
+
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+
+from pyHomie import homieSchema
 from pyHomie import properties, device, node, mqttClient, watchdog
 
 
@@ -21,35 +28,52 @@ class pyHomie(object):
 
         self.mqttClient = mqttClient.mqttClient(logger)
 
-    def __del__(self):
-        for id,instance in self.__dict__.items():
-            if isinstance(instance, device.device):
-                instance.setState('disconnected')
+        #simulate mqtt
+       # self.mqttClient = mqttClient.mqttStub(logger)
 
+    def __del__(self):
         self._log.info('Shutdown %s'%__app__)
         self.mqttClient.disconnect()
 
 
-    def init(self,configfile='config.yaml'):
-        with open(configfile, 'r') as f:
-            config = yaml.safe_load(f)
-            self._log.debug('Startup of Homie with config: %s'% config)
+    def init(self,configFile='config.yaml'):
 
-        mqttConfig = config.get('mqtt',None)
-        homieConfig = config.get('homie',None)
+        config = self.openConfigFile(configFile)
 
-        if mqttConfig is not None:
-            self.initMqtt(mqttConfig)
+        if config is not False:
+            mqttConfig = config.get('mqtt',None)
+            homieConfig = config.get('homie',None)
         else:
             return False
 
-        if homieConfig is not None:
-            self.initHomie(homieConfig)
-            self.startHomie()
-        else:
+        if mqttConfig is None:
+     #       self.initMqtt(mqttConfig)
+      #  else:
+            self._log.critical('Cannot start MQTT no Config File')
+            return False
+
+        if homieConfig is None:
+            self._log.error('Cannot start pyHomie no Config File')
+            return False
+
+        if not self.initHomie(homieConfig,mqttConfig):
+            return False
+
+        if not self.startHomie():
             return False
 
         return True
+
+    def openConfigFile(self,configFile='config.yaml') ->str:
+        try:
+            with open(configFile, 'r') as f:
+                config = yaml.safe_load(f)
+                self._log.debug('Startup of Homie with config: %s'% config)
+        except Exception as e:
+            self._log.error('Failed to open Configuration file %s Error Type %s'%(configFile,repr(e)))
+            return False
+
+        return config
 
 
     def initMqtt(self,config):
@@ -57,61 +81,100 @@ class pyHomie(object):
             self._log.critical('MQTT cannot be started')
             exit(-1)
 
-    def initHomie(self,config):
-        self._log.debug('Start pyHomie with configuration %s'% config)
 
-        for deviceId, deviceValue in config.items():
-            if not self._validateId(deviceId):
-                self._log.critical('Validation of device ID failed: %s' % deviceId)
+    def initHomie(self,homieConfig,mqttConfig):
+        self._log.debug('Start pyHomie with configuration %s'% homieConfig)
+
+        if not self.lexicalCheck(homieConfig):
+            self._log.error('Lexical check failed of configuration')
+            return False
+
+        if not self.initHomieDevice(homieConfig,mqttConfig):
+            self._log.error('Failed to crate Homie Device')
+
+        else:
+            self._log.info('Homie Device created')
+
+        return True
+
+    def initHomieDevice(self,homieConfig,mqttConfig):
+        for deviceId, deviceValue in homieConfig.items():
+            deviceObj = device.device(id=deviceId, mqttObj=self.mqttClient, mqttConfig=mqttConfig, topic=deviceValue.get('topic', 'homie'), homie=deviceValue.get('homie', '4.0'), name=deviceValue.get('name', None), state=deviceValue.get('state', 'init'), logger=self._logHandler)
+            setattr(self,deviceId,deviceObj)
+            self._log.debug('Create device with ID: %s'%(deviceId))
+            if not self.initHomieNode(deviceValue.get('nodes',[]),deviceObj):
+                self._log.error('Failed to create Nodes')
                 return False
 
-            deviceObj = device.device(id=deviceId, mqttObj=self.mqttClient, topic=deviceValue.get('topic', 'homie'), homie=deviceValue.get('homie', '4.0'), name=deviceValue.get('name', None), state=deviceValue.get('state', 'init'), logger=self._logHandler)
-            setattr(self,deviceId,deviceObj)
-           # self.deviceRegister.append(deviceObj)
+        return True
 
-            for nodeId,nodeValue in deviceValue.items():
-                if isinstance(nodeValue, dict):
-                    if not self._validateId(nodeId):
-                        self._log.critical('Validation of node ID failed: %s'%nodeId)
-                        return False
+    def initHomieNode(self,config,deviceObj):
+        for nodeItem in config:
+        #    print('item',nodeItem)
+            for nodeId,nodeValue in nodeItem.items():
+         #       print('nodeid',nodeId)
+                nodeObj = node.node(id=nodeId, device=deviceObj, name=nodeValue.get('name', ''), type=nodeValue.get('type', ''), logger=self._logHandler)
+               # setattr(self,nodeId, nodeObj)
+               # print(nodeId,nodeObj)
+          #print(deviceObj)
+                deviceObj.registerNode(nodeId,nodeObj)
+                self._log.debug('Create node with ID: %s' % (nodeId))
+                if not self.initHomieProperty(nodeValue.get('properties',[]),nodeObj):
+                    self._log.error('Failed to create Properties')
+                    return False
 
-                    nodeObj = node.node(id=nodeId, device=deviceObj, name=nodeValue.get('name', ''), type=nodeValue.get('type', ''), logger=self._logHandler)
-                    setattr(self,nodeId, nodeObj)
-                   # print(nodeId,nodeObj)
-                    deviceObj.registerNode(nodeId,nodeObj)
-                #    self.nodeRegister.append(nodeObj)
-                 #   print(self.__dict__)
-                    for propertyId,propertyValue in nodeValue.items():
-                        if isinstance(propertyValue,dict):
-                            if not self._validateId(propertyId):
-                                self._log.critical('Validation of property ID failed: %s' % propertyId)
-                                return False
-                 #           print(propertyId,propertyValue)
-                           # module = importlib.import_module('pyHomie.api.properties#')
-                           # print(module)
-                            _type = getattr(properties, propertyValue.get('type', 'switch'))
-                            #print('Type',propertyValue,_type)
-                            self._log.debug('Get property type %s of propertyID %s'%(_type,propertyId))
-                            #type=propertyValue.get('type','Switch')
-                          #  propertyObj = _type(id=propertyId,node=nodeObj,name=propertyValue.get('name',''),settable=propertyValue.get('settable',False))
-                            propertyObj = _type(propertyId, nodeObj, logger=self._logHandler, **propertyValue)
-                            setattr(self,propertyId, propertyObj)
-                            nodeObj.registerProperty(propertyId,propertyObj)
+        return True
 
-       # print(self.__dict__)
+    def initHomieProperty(self,config,nodeObj):
+        for propertyItem in config:
+            for propertyId, propertyValue in propertyItem.items():
+                _type = getattr(properties, propertyValue.get('type', 'switch'))
+                self._log.debug('Get property type %s of propertyID %s' % (_type, propertyId))
+
+             #   propertyObj = _type(propertyId, nodeObj, logger=self._logHandler, **propertyValue)
+                propertyObj = _type(propertyId, nodeObj, logger=self._logHandler, **propertyValue)
+                nodeObj.registerProperty(propertyId, propertyObj)
+
+        return True
+
+    def lexicalCheck(self,config):
+
+        try:
+            validate(instance=config,schema=homieSchema.homieSchema)
+            self._log.debug('Homie config validation completed successfully')
+
+        except ValidationError as e:
+            self._log.error('Homie config validation failed with error code %s '% (e.message))
+            self._log.error('Failed at path %s'%(e.json_path))
+            return False
+
+        return True
+
+
 
     def startHomie(self):
-        print('run')
-       # if isinstance(value,device) in self.__dict__.va
-        for id,instance in self.__dict__.items():
-            #print(_instance_object,isinstance(_object,device))
-            if isinstance(instance, device.device):
-               # print('True',device)
-                instance.init()
+        self._log.debug('Start Homie Interface')
+
+        try:
+           # if isinstance(value,device) in self.__dict__.va
+            for id,instance in self.__dict__.items():
+                #print(_instance_object,isinstance(_object,device))
+                if isinstance(instance, device.device):
+                   # print('True',device)
+                    if not instance.init():
+                        self._log.error('Error failed to start Homie interface')
+                        return False
+        except Exception as e:
+            self._log.error('Failed to start pyHomie interface with messge %s'%(e.message))
+            return False
+
+
+        return True
 
     def start(self):
+        self._log.info('Homie Application Start Running')
        # self.deviceRegister[0].init()
-        self._updateTimer= watchdog.watchdog(60, self.statesUpdate)
+        self._updateTimer= watchdog.watchdog(60, self.stateUpdate)
         self._updateTimer.start()
         self._timeoutTimer= watchdog.watchdog(120, self.watchdogTimeout)
         self._timeoutTimer.start()
@@ -119,7 +182,10 @@ class pyHomie(object):
         for id, instance in self.__dict__.items():
             if isinstance(instance, device.device):
                 instance.setState('ready')
+        return True
+
     def stop(self):
+        self._log.info('Homie Application Stop Running')
         self._updateTimer.cancel()
         self._timeoutTimer.cancel()
 
@@ -127,22 +193,29 @@ class pyHomie(object):
             if isinstance(instance, device.device):
                 instance.setState('disconnected')
 
-    def statesUpdate(self,value):
+        self.mqttClient.disconnect()
+
+        return True
+
+    def stateUpdate(self,value):
         self._log.debug('Homie $state update')
-        for _instance,_object in self.__dict__.items():
-            if isinstance(_instance, device.device):
+        for id,instance in self.__dict__.items():
+            if isinstance(instance, device.device):
                # print('True',key,value)
-                _object.updateStates(value)
+                instance.updateStats()
         #self.deviceRegister[0].updateStates(value)
-        self._updateTimer.restart()
+     # self._updateTimer.restart()
+        self._updateTimer.cancel()
+        self._updateTimer= watchdog.watchdog(60, self.stateUpdate)
+        self._updateTimer.start()
 
     def watchdogTimeout(self,value):
         if 'TIMEOUT' in value:
             self._log.critical('Watchdog timeout, set Homie $state to lost')
-            for _instance, _object in self.__dict__.items():
-                if isinstance(_instance, device.device):
+            for id,instance in self.__dict__.items():
+                if isinstance(instance, device.device):
                     # print('True',key,value)
-                    _object.setState('lost')
+                    instance.setState('lost')
            # self.deviceRegister[0].setState('lost')
         else:
             self._timeoutTimer.restart()
@@ -153,19 +226,26 @@ class pyHomie(object):
         self._log.debug('Watchdog reset')
         self._timeoutTimer.restart()
 
+
     def getDevices(self) -> list:
         deviceList = []
         for id,instance in self.__dict__.items():
+           # print(id,instance)
             if isinstance(instance, device.device):
-                deviceList.append(id)
+                deviceList.append((id,instance))
         return deviceList
 
-    def getNodes(self) -> list:
-        _list = []
-        for id, instance in self.__dict__.items():
-            if isinstance(instance, node.node):
-                _list.append(id)
-        return _list
+    def getNodes(self,device=None) -> list:
+        nodeList = []
+        for id, instance in self.getDevices():
+            for id,instance in instance.__dict__.items():
+                if isinstance(instance, node.node):
+                    nodeList.append((id,instance))
+        return nodeList
+
+
+
+        return nodeList
 
     def getProperties(self) -> list:
         _list = []
@@ -174,6 +254,8 @@ class pyHomie(object):
                 _list.append(id)
         return _list
 
+
+#unused
     def _validateId(self,id):
         if isinstance(id, str):
             r = re.compile("(^(?!\\-)[a-z0-9\\-]+(?<!\\-)$)")

@@ -34,15 +34,21 @@ class node(object):
 
 
         for id,instance in self.__dict__.items():
-          #  print(self.__dict__)
-       #     print('init PROPERTY', id, instance, isinstance(instance, property))
+           # print('ID %s, Instance: %s)' %(id,instance))
+           # print(properties.propertyBase)
+           # print('init PROPERTY', id, instance, isinstance(instance, properties.propertyBase))
+            #print()
             #if isinstance(instance, property):
         #    print(instance,properties.property)
           #  if issubclass(properties.property,instance):
            #     print('is Subclass of properties')
             if isinstance(instance, properties.propertyBase):
               #  print('init Property,', id, instance)
-                instance.init(self.mqttObj,self.topic)
+                if not instance.init(self.mqttObj,self.topic):
+                    self._log.error('Error')
+                    return False
+
+        return True
 
 
     def publish(self):
@@ -50,9 +56,9 @@ class node(object):
         self.mqttObj.publish("{}/$name".format(self.topic), self.name, True, 1)
     #    self.mqttObj.publish("{}/$type".format(self.topic), self.type, True, 1)
         #if self.properties:
-        properties =[]
+        propertiesList =[]
         for id, instance in self.__dict__.items():
-            if isinstance(instance, property):
-                properties.append(instance.id)
+            if isinstance(instance, properties.propertyBase):
+                propertiesList.append(instance.id)
 
-        self.mqttObj.publish("/".join((self.topic, "$properties")), ",".join(properties), retain=True, qos=1)
+        self.mqttObj.publish("/".join((self.topic, "$properties")), ",".join(propertiesList), retain=True, qos=1)

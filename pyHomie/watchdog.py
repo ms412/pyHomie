@@ -14,6 +14,7 @@ class watchdog(threading.Thread):
         self._timer = threading.Timer(self.timeout,self._callback)
         self._timer.start()
     def restart(self):
+       # print('Restarting timer')
         self._timer.cancel()
         self.start()
 

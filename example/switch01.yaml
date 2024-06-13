@@ -1,0 +1,42 @@
+
+
+mqtt:
+    host: 192.168.2.20
+  #  host: test.mosquitto.org
+    port: 1883
+
+homie:
+    device01:
+        topic: homieTest
+        name: Dishwasher
+        nodes:
+          - node01:
+              name: Program
+              properties:
+                - switch11:
+                    name: Power
+                    type: switchType
+                    datatype: string
+                    settable: False
+                    format: OFF:ON
+                - switch12:
+                      name: Power
+                      type: switchType
+                      datatype: string
+                      settable: True
+                      format: OFF:ON
+          - node02:
+              name: Program2
+              properties:
+                - switch21:
+                    name: Power
+                    type: switchType
+                    datatype: string
+                    settable: False
+                    format: OFF:ON
+                - switch22:
+                      name: Power
+                      type: switchType
+                      datatype: string
+                      settable: True
+                      format: OFF:ON

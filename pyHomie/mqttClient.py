@@ -30,25 +30,24 @@ class mqttClient(object):
 
         self._log.info('Start %s, %s' % (__app__, __version__))
 
-        self._mqttc = None
+        self._mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._state = 'INIT'
 
         self._callbackOnConnect = None
 
     def __del__(self):
-        self._log.info('Shutdown %s'%__app__)
+        self._log.info('Delete mqtt')
 
     def will_set(self,topic,msg,retain=False,qos=0):
+        self._log.debug('Last Will Set Topic: %s, Message: %s, Retain: %s'%(topic,msg,retain))
         self._mqttc.will_set(topic,msg,retain,qos)
 
     def callbackOnConnect(self,callback):
         self._callbackOnConnect = callback
-        print(self._callbackOnConnect)
+        print('Callback on connect',self._callbackOnConnect)
 
     def connect(self, host, port=1883, **options):
         self._log.debug('Connect with options(%s, %s, %s)' % (host, port, options))
-
-        self._mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
         self._mqttc.on_message = self.on_message
         if self._callbackOnConnect is not None:
@@ -71,30 +70,36 @@ class mqttClient(object):
             self._log.info('Connected to mqtt with ClientID(%s)' % (host))
             self._state = 'CONNECTED'
 
-        except OSError:
+        except Exception as e:
             self._log.error('Connect Failed')
-            self._state = 'FAILD'
+            self._log.critical('Failed to connect to MQTT Error Type: %s' % (repr(e)))
+           # self._state = 'FAILD'
             return False
 
         return True
 
     def disconnect(self):
-        self._log.info('Disconnected from MQTT')
+        self._log.info('Graceful Disconnected from MQTT')
         if self._state == 'CONNECTED':
             self._mqttc.disconnect()
         else:
             self._log.error('Not in connected state')
 
+        return True
+
     def publish(self,topic,msg,retain=True,qos=1):
+        self._log.debug('publish to topic: %s message: %s'%(topic,msg))
         self._mqttc.publish(topic,msg,retain,qos)
 
 
     def subscribe(self,topic,callback=None):
         if callback:
-            print('add callback')
+        #    print('add callback')
+            self._log.debug('add callback to topic: %s '%(topic))
             self._mqttc.message_callback_add(topic,callback)
 
         (_result, _mid) = self._mqttc.subscribe(topic)
+        self._log.debug('Subscribed to topic: %s, result %d'%(topic,_result))
 
 
     def on_publish(self, client, userdata, mid, rc, properties):
@@ -103,7 +108,8 @@ class mqttClient(object):
         return True
 
     def on_subscribe(self,mqttc,obj,mid,granted_qos,properties):
-        print('Methode: on_subscribe(%s, %s, %s, %s)' % (mqttc, obj, mid, granted_qos))
+        self._log.debug('Methode:on_subscribe(%s, %s, %s, %s)' % (mqttc, obj, mid, granted_qos))
+      #  print('Methode: on_subscribe(%s, %s, %s, %s)' % (mqttc, obj, mid, granted_qos))
         return True
 
     def on_message(self, client, userdata, message):
@@ -131,7 +137,40 @@ class mqttClient(object):
     def on_log(self):
         pass
 
+class mqttStub(object):
 
+    def __init__(self, logger='logger'):
+        _libName = str(__name__.rsplit('.', 1)[-1])
+        self._log = logging.getLogger(logger + '.' + _libName + '.' + self.__class__.__name__)
+
+        self._log.info('Start MQTT Stub %s, %s' % (__app__, __version__))
+
+        self._mqttc = None
+        self._state = 'INIT'
+
+        self._callbackOnConnect = None
+
+    def __del__(self):
+        self._log.info('MQTT Stub Shutdown %s'%__app__)
+
+    def will_set(self,topic,msg,retain=False,qos=0):
+        self._log.debug('MQTT Stub Will set %s, %s' % (topic,msg))
+        return True
+    def connect(self, host, port=1883, **options):
+        self._log.debug('MQTT Stub Connect with options(%s, %s, %s)' % (host, port, options))
+        return True
+
+    def disconnect(self):
+        self._log.debug('MQTT Stub Disconnect')
+        return True
+
+    def publish(self, topic, msg, retain=True, qos=1):
+        self._log.debug('MQTT Stub Publish %s, %s' % (topic, msg))
+        return True
+
+    def subscribe(self, topic, callback=None):
+        self._log.debug('MQTT Stub Subscribe %s, %s' % (topic, callback))
+        return True
 
 
 if __name__ == "__main__":

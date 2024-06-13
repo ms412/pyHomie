@@ -1,0 +1,63 @@
+
+mqtt:
+    host: 192.168.2.20
+  #  host: test.mosquitto.org
+    port: 1883
+
+homie:
+    vzug01:
+        topic: homieTest
+        name: Dishwasher
+        nodes:
+          - program01:
+              name: Program
+              properties:
+                - mashinestatus01:
+                    name: Power
+                    type: switchType
+                    settable: False
+                    datatype: string
+                    format: OFF:ON
+                - programactive01:
+                    name: Active Program
+                    type: stringType
+                    datatype: string
+                    settable: False
+                - programstatus01:
+                    name: Program Status
+                    type: stringType
+                    datatype: string
+                    settable: False
+                - programende01:
+                    name: Program End
+                    #    type: Date
+                    type: floatType
+                    datatype: string
+                    settable: False
+          - energy01:
+              name: Energy Consumption
+              properties:
+                - programenergy01:
+                    name: Program Energy
+                    type: floatType
+                    unit: kw/h
+                    datatype: string
+                    settable: False
+                - programwater01:
+                    name: Program Water
+                    type: floatType
+                    unit: m³
+                    datatype: string
+                    settable: False
+                - totalenergy01:
+                    name: Total Energy
+                    type: floatType
+                    unit: kw/h
+                    datatype: string
+                    settable: False
+                - totalwater01:
+                    name: Total Water
+                    type: floatType
+                    unit: m³
+                    datatype: string
+                    settable: False

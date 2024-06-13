@@ -23,6 +23,9 @@ class propertyBase(object):
 
         self._log.info('Create Property Base Objact ID: %s' % (self._id))
 
+    def __del__(self):
+        self._log.debug('Delete property %s'%(self.id))
+
     def init(self,mqttObj,baseTopic):
         self._log.info('Start initalisation of Property ID: %s' % self._id)
         self.mqttObj = mqttObj
@@ -32,6 +35,8 @@ class propertyBase(object):
 
         if self.settable:
             self.mqttObj.subscribe("{}/set".format(self.topic), self.on_message_callback)
+
+        return True
 
 
     def publish(self):
@@ -57,6 +62,8 @@ class propertyBase(object):
         if self.value is not None:
             self.mqttObj.publish(self.topic, self.value, self.retained, 1)
 
+        return True
+
     @property
     def value(self):
        # print("Getting value...")
@@ -70,7 +77,7 @@ class propertyBase(object):
         if self.validate_value(value):
             self._value = value
            # print('topic',self.topic,self.retained,value)
-            self.mqttObj.publish(self.topic, self.convertToPayload(value), self.retained, 1)
+            self.mqttObj.publish(self.topic, self.convertToPayload(self._value), self.retained, 1)
         else:
           #  print('validation error')
             self._log.error('Property: %s validation of value %s failed'%(self._id,value))
@@ -82,17 +89,21 @@ class propertyBase(object):
     def convertFromPayload(self, value):
         return value #override as needed
 
-    def on_message_callback(self,client,obj, msg):
+    def on_message_callback(self,client,userdata, msg):
         # This callback will only be called for messages with topics that match
         # $SYS/broker/messages/#
-        print("MESSAGES: " + msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+      #  print("MESSAGES: " + msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+        self._log.debug('Received message: Property: %s, Topic: %s, Payload: %s'%(self.id, msg.topic, msg.payload))
         value = self.convertFromPayload(msg.payload.decode("utf-8"))
-        print(value,type(value))
+       # print(value,type(value))
         self.value = value
+      #  print(self.callback)
         if self.callback is not None:
+            self._log.debug('Callback: %s, value: %s'%(self.callback, value))
             self.callback(value)
 
     def registerCallback(self,callback):
+        self._log.debug('Register Callback Property: %s, callback: %s'%(self.id,callback))
         self.callback = callback
 
 
@@ -128,25 +139,20 @@ class switchType(propertyBase):
         return value in['ON','OFF']
 
     def convertFromPayload(self,payload):
-        print(payload)
+     #   print(payload,type(payload))
         if payload is not str:
-
             payload = str(payload)
-            print(payload,type(payload))
-        if payload == 'true':
+       #     print(payload,type(payload))
+        if payload in ['true','True','on','ON']:
             return 'ON'
-        elif payload == 'false':
+        elif payload in ['false','False','off','OFF']:
             return 'OFF'
         else:
             return None
 
     def convertToPayload(self,value):
-        if value:
-            return self._format.split(':')[1]
-        elif not value:
-            return self._format.split(':')[0]
-        else:
-            return None
+        return value
+
 
 class boolType(propertyBase):
 

@@ -14,13 +14,14 @@ from pyHomie import node
 
 class device(object):
 
-    def __init__(self,id,mqttObj,topic='homie',homie='4.0.0',name='',state='init',logger='logger'):
+    def __init__(self,id,mqttObj,mqttConfig,topic='homie',homie='4.0.0',name='',state='init',logger='logger'):
 
         _libName = str(__name__.rsplit('.', 1)[-1])
         self._log = logging.getLogger(logger + '.' + _libName + '.' + self.__class__.__name__)
 
         self.deviceId = id
         self.mqttObj = mqttObj
+        self.mqttConfig = mqttConfig
         self.baseTopic = topic
 
         self.homieVersion = homie
@@ -56,10 +57,11 @@ class device(object):
         self.state = state
        # print('publish state',self.topic,self.state)
         self.mqttObj.publish("/".join((self.topic,"$state")), self.state, retain=True, qos=1)
+        time.sleep(5)
         return True
 
     def registerNode(self,id,nodeObj):
-        self._log.info('NodeID %s registered as device %s'%(id,self.deviceId))
+        self._log.info('NodeID %s registered at Device %s'%(id,self.deviceId))
       #  print('regisertNode',id)
         setattr(self,id,nodeObj)
     #    self.nodesRegister[id] = nodeObj
@@ -74,6 +76,10 @@ class device(object):
 
         #set last will
         self.mqttObj.will_set("/".join((self.topic,"$state")),'lost',retain=True)
+        if not self.mqttObj.connect(self.mqttConfig.get('host','192.168.2.20')):
+            self._log.critical('MQTT cannot be started')
+            exit(-1)
+
         self.publish()
         self.publish_extensions()
         self._log.info('Completed initialisation of device ID: %s'% self.deviceId)
@@ -83,9 +89,11 @@ class device(object):
        #     print('init node', id, instance, isinstance(instance, node.node))
             if isinstance(instance, node.node):
               #  print('init Node', id, instance)
-                instance.init(self.mqttObj,self.topic)
-     #   for nodeName, nodeObj in self.nodesRegister.items():
-      #      nodeObj.init(self.mqttObj,self.topic)
+                if not instance.init(self.mqttObj,self.topic):
+                    self._log.error('Error')
+                    return False
+
+        return True
 
     def publish(self):
         self.mqttObj.publish("/".join((self.topic,"$homie")),self.homieVersion,retain=True,qos=1)
